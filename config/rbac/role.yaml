@@ -1,0 +1,33 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - rbac.cattle.io
+  resources:
+  - subjectregistrars
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.cattle.io
+  resources:
+  - subjectregistrars/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - rbac.cattle.io
+  resources:
+  - subjectregistrars/status
+  verbs:
+  - get
+  - patch
+  - update
