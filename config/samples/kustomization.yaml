@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- rbac_v1_subjectregistrar.yaml
+#+kubebuilder:scaffold:manifestskustomizesamples

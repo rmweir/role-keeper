@@ -7,4 +7,14 @@ layout:
 - go.kubebuilder.io/v4-alpha
 projectName: role-keeper
 repo: cattle.io/role-keeper
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cattle.io
+  group: rbac
+  kind: SubjectRegistrar
+  path: cattle.io/role-keeper/api/v1
+  version: v1
 version: "3"
