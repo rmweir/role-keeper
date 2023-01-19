@@ -35,8 +35,9 @@ type SubjectRegistrarSpec struct {
 }
 
 type AppliedRule struct {
-	Namespace string  `json:"namespace,omitempty"`
-	Rule      v1.Rule `json:"rule,omitempty"`
+	v1.Rule `json:"inline,omitempty"`
+
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // SubjectRegistrarStatus defines the observed state of SubjectRegistrar
