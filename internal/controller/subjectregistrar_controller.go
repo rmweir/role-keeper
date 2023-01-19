@@ -60,5 +60,6 @@ func (r *SubjectRegistrarReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&rbacv1.SubjectRegistrar{}).
 		Owns(&v1.Role{}).
+		Owns(&rbacv1.SubjectRoleRequest{}).
 		Complete(r)
 }
