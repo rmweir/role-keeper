@@ -1,0 +1,12 @@
+apiVersion: rbac.cattle.io/v1
+kind: SubjectRoleRequest
+metadata:
+  labels:
+    app.kubernetes.io/name: subjectrolerequest
+    app.kubernetes.io/instance: subjectrolerequest-sample
+    app.kubernetes.io/part-of: role-keeper
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: role-keeper
+  name: subjectrolerequest-sample
+spec:
+  # TODO(user): Add fields here
