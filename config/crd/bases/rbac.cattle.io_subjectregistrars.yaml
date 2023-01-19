@@ -52,9 +52,7 @@ spec:
               appliedRules:
                 items:
                   properties:
-                    namespace:
-                      type: string
-                    rule:
+                    inline:
                       description: Rule is a tuple of APIGroups, APIVersion, and Resources.It
                         is recommended to make sure that all the tuple expansions
                         are valid.
@@ -99,6 +97,8 @@ spec:
                             match the scope of their parent resource. Default is "*".
                           type: string
                       type: object
+                    namespace:
+                      type: string
                   type: object
                 type: array
             type: object
