@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,11 +30,19 @@ type SubjectRegistrarSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of SubjectRegistrar. Edit subjectregistrar_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	SubjectID   string `json:"subjectID,omitempty"`
+	SubjectKind string `json:"subjectKind,omitempty"`
+}
+
+type AppliedRule struct {
+	Namespace string  `json:"namespace,omitempty"`
+	Rule      v1.Rule `json:"rule,omitempty"`
 }
 
 // SubjectRegistrarStatus defines the observed state of SubjectRegistrar
 type SubjectRegistrarStatus struct {
+	AppliedRoles map[string]int `json:"appliedRoles,omitempty"`
+	AppliedRules []AppliedRule  `json:"appliedRules,omitempty"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
