@@ -31,3 +31,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - rbac.cattle.io
+  resources:
+  - subjectrolerequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.cattle.io
+  resources:
+  - subjectrolerequests/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - rbac.cattle.io
+  resources:
+  - subjectrolerequests/status
+  verbs:
+  - get
+  - patch
+  - update
