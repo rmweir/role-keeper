@@ -28,15 +28,32 @@ type SubjectRoleRequestSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of SubjectRoleRequest. Edit subjectrolerequest_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Operation Operation `json:"operation,omitempty"`
 }
+
+// +kubebuilder:validation:Enum=AddRole;RemoveRole
+
+type Operation string
+
+const (
+	AddRole    Operation = "AddRole"
+	RemoveRole Operation = "RemoveRole"
+)
 
 // SubjectRoleRequestStatus defines the observed state of SubjectRoleRequest
 type SubjectRoleRequestStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// +optional
+	Status RequestStatus `json:"status,omitempty"`
 }
+
+// +kubebuilder:validation:Enum=Successful;Failure
+
+type RequestStatus string
+
+const (
+	Success RequestStatus = "Successful"
+	Failure RequestStatus = "Failure"
+)
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
