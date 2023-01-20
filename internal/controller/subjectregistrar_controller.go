@@ -57,7 +57,7 @@ func (r *SubjectRegistrarReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	var srr rbacv1.SubjectRoleRequestList
-	if err := r.List(ctx, &srr, client.MatchingFields{"spec.subjectID": sr.Spec.SubjectID, "spec.subjectKind": sr.Spec.SubjectKind}); err != nil {
+	if err := r.List(ctx, &srr, client.MatchingFields{"spec.subjectID": sr.Spec.SubjectID}); err != nil {
 		return ctrl.Result{}, err
 	}
 
