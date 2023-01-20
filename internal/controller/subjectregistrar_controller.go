@@ -48,8 +48,20 @@ type SubjectRegistrarReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *SubjectRegistrarReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	ns := req.Namespace
+	id := req.Name
+	var sr rbacv1.SubjectRegistrar
 
+	if err := r.Get(ctx, client.ObjectKey{Namespace: ns, Name: id}, &sr); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	var srr rbacv1.SubjectRoleRequestList
+	if err := r.List(ctx, &srr, client.MatchingFields{"spec.subjectID": sr.Spec.SubjectID, "spec.subjectKind": sr.Spec.SubjectKind}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	_ = log.FromContext(ctx)
 	// TODO(user): your logic here
 
 	return ctrl.Result{}, nil
