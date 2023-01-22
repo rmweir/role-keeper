@@ -48,7 +48,10 @@ type SubjectRoleRequestReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *SubjectRoleRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
-
+	var srr rbacv1.SubjectRegistrarList
+	if err := r.List(ctx, &srr, client.MatchingFields{"spec.subjectID": "a"}, client.MatchingFields{"spec.subjectKind": ""}); err != nil {
+		return ctrl.Result{}, err
+	}
 	// TODO(user): your logic here
 
 	return ctrl.Result{}, nil
@@ -56,6 +59,19 @@ func (r *SubjectRoleRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SubjectRoleRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &rbacv1.SubjectRoleRequest{}, "spec.subjectID", func(obj client.Object) []string {
+		srr := obj.(*rbacv1.SubjectRoleRequest)
+		return []string{srr.Spec.SubjectID}
+	}); err != nil {
+		return err
+	}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &rbacv1.SubjectRoleRequest{}, "spec.subjectKind", func(obj client.Object) []string {
+		srr := obj.(*rbacv1.SubjectRoleRequest)
+		return []string{srr.Spec.SubjectKind, srr.Spec.SubjectKind}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&rbacv1.SubjectRoleRequest{}).
 		Complete(r)

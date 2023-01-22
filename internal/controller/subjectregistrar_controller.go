@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-
 	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,7 +56,7 @@ func (r *SubjectRegistrarReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	var srr rbacv1.SubjectRoleRequestList
-	if err := r.List(ctx, &srr, client.MatchingFields{"spec.subjectID": sr.Spec.SubjectID}); err != nil {
+	if err := r.List(ctx, &srr, client.MatchingFields{"spec.subjectID": "a"}, client.MatchingFields{"spec.subjectKind": ""}); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -72,6 +71,5 @@ func (r *SubjectRegistrarReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&rbacv1.SubjectRegistrar{}).
 		Owns(&v1.Role{}).
-		Owns(&rbacv1.SubjectRoleRequest{}).
 		Complete(r)
 }
