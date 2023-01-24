@@ -2,6 +2,7 @@ package subjectregistrar
 
 import (
 	"context"
+	"fmt"
 	cattlerbacv1 "github.com/rmweir/role-keeper/api/v1"
 	"github.com/sirupsen/logrus"
 	k8srbacv1 "k8s.io/api/rbac/v1"
@@ -10,11 +11,11 @@ import (
 )
 
 func updateRulesForRoles(ctx context.Context, sr *cattlerbacv1.SubjectRegistrar, c client.Client) {
-	/*
-		for _, rule := range sr.Status.AppliedRules {
+	appliedRules := make(map[string]bool)
+	for _, rule := range sr.Status.AppliedRules {
+		appliedRules[fmt.Sprintf("%s/%s", rule.Namespace, rule.String())] = true
+	}
 
-		}
-	*/
 	for roleID := range sr.Status.AppliedRoles {
 		parts := strings.Split(roleID, ":")
 		if len(parts) != 0 && len(parts) != 2 {
@@ -35,5 +36,15 @@ func updateRulesForRoles(ctx context.Context, sr *cattlerbacv1.SubjectRegistrar,
 			continue
 		}
 
+		if _, ok := appliedRules[fmt.Sprintf("%s/%s", ns, role.String())]; ok {
+			continue
+		}
+
+	}
+}
+
+func createSubjectRegistrar(ns string, role k8srbacv1.Role) cattlerbacv1.SubjectRegistrar {
+	return cattlerbacv1.SubjectRegistrar{
+		Spec: cattlerbacv1.SubjectRegistrarSpec{},
 	}
 }
