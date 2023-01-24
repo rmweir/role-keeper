@@ -6,7 +6,7 @@ domain: cattle.io
 layout:
 - go.kubebuilder.io/v4-alpha
 projectName: role-keeper
-repo: cattle.io/role-keeper
+repo: github.com/rmweir/role-keeper
 resources:
 - api:
     crdVersion: v1

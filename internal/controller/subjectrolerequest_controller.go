@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	rbacv1 "cattle.io/role-keeper/api/v1"
+	rbacv1 "github.com/rmweir/role-keeper/api/v1"
 )
 
 // SubjectRoleRequestReconciler reconciles a SubjectRoleRequest object

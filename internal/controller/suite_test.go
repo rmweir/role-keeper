@@ -30,7 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	rbacv1 "cattle.io/role-keeper/api/v1"
+	rbacv1 "github.com/rmweir/role-keeper/api/v1"
 	//+kubebuilder:scaffold:imports
 )
 

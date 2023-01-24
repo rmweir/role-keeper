@@ -1,8 +1,8 @@
 package subjectregistrar
 
 import (
-	cattlerbacv1 "cattle.io/role-keeper/api/v1"
 	"context"
+	cattlerbacv1 "github.com/rmweir/role-keeper/api/v1"
 	"github.com/sirupsen/logrus"
 	k8srbacv1 "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"

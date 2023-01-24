@@ -1,4 +1,4 @@
-module cattle.io/role-keeper
+module github.com/rmweir/role-keeper
 
 go 1.19
 
