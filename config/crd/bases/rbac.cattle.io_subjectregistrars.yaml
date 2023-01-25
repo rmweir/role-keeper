@@ -53,49 +53,53 @@ spec:
                 items:
                   properties:
                     inline:
-                      description: Rule is a tuple of APIGroups, APIVersion, and Resources.It
-                        is recommended to make sure that all the tuple expansions
-                        are valid.
+                      description: PolicyRule holds information that describes a policy
+                        rule, but does not contain information about who the rule
+                        applies to or which namespace the rule applies to.
                       properties:
                         apiGroups:
-                          description: APIGroups is the API groups the resources belong
-                            to. '*' is all groups. If '*' is present, the length of
-                            the slice must be one. Required.
+                          description: APIGroups is the name of the APIGroup that
+                            contains the resources.  If multiple API groups are specified,
+                            any action requested against one of the enumerated resources
+                            in any API group will be allowed. "" represents the core
+                            API group and "*" represents all API groups.
                           items:
                             type: string
                           type: array
-                          x-kubernetes-list-type: atomic
-                        apiVersions:
-                          description: APIVersions is the API versions the resources
-                            belong to. '*' is all versions. If '*' is present, the
-                            length of the slice must be one. Required.
+                        nonResourceURLs:
+                          description: NonResourceURLs is a set of partial urls that
+                            a user should have access to.  *s are allowed, but only
+                            as the full, final step in the path Since non-resource
+                            URLs are not namespaced, this field is only applicable
+                            for ClusterRoles referenced from a ClusterRoleBinding.
+                            Rules can either apply to API resources (such as "pods"
+                            or "secrets") or non-resource URL paths (such as "/api"),  but
+                            not both.
                           items:
                             type: string
                           type: array
-                          x-kubernetes-list-type: atomic
+                        resourceNames:
+                          description: ResourceNames is an optional white list of
+                            names that the rule applies to.  An empty set means that
+                            everything is allowed.
+                          items:
+                            type: string
+                          type: array
                         resources:
-                          description: "Resources is a list of resources this rule
-                            applies to. \n For example: 'pods' means pods. 'pods/log'
-                            means the log subresource of pods. '*' means all resources,
-                            but not subresources. 'pods/*' means all subresources
-                            of pods. '*/scale' means all scale subresources. '*/*'
-                            means all resources and their subresources. \n If wildcard
-                            is present, the validation rule will ensure resources
-                            do not overlap with each other. \n Depending on the enclosing
-                            object, subresources might not be allowed. Required."
+                          description: Resources is a list of resources this rule
+                            applies to. '*' represents all resources.
                           items:
                             type: string
                           type: array
-                          x-kubernetes-list-type: atomic
-                        scope:
-                          description: scope specifies the scope of this rule. Valid
-                            values are "Cluster", "Namespaced", and "*" "Cluster"
-                            means that only cluster-scoped resources will match this
-                            rule. Namespace API objects are cluster-scoped. "Namespaced"
-                            means that only namespaced resources will match this rule.
-                            "*" means that there are no scope restrictions. Subresources
-                            match the scope of their parent resource. Default is "*".
-                          type: string
+                        verbs:
+                          description: Verbs is a list of Verbs that apply to ALL
+                            the ResourceKinds contained in this rule. '*' represents
+                            all verbs.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - verbs
                       type: object
                     namespace:
                       type: string
