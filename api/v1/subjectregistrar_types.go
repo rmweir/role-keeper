@@ -17,7 +17,7 @@ limitations under the License.
 package v1
 
 import (
-	v1 "k8s.io/api/admissionregistration/v1"
+	v12 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -35,7 +35,7 @@ type SubjectRegistrarSpec struct {
 }
 
 type AppliedRule struct {
-	v1.Rule `json:"inline,omitempty"`
+	v12.PolicyRule `json:"inline,omitempty"`
 
 	Namespace string `json:"namespace,omitempty"`
 }
