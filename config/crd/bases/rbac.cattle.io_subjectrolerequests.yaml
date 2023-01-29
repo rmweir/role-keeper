@@ -41,11 +41,15 @@ spec:
                 - AddRole
                 - RemoveRole
                 type: string
+              role:
+                type: string
               subjectID:
                 description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
                   Important: Run "make" to regenerate code after modifying this file'
                 type: string
               subjectKind:
+                type: string
+              targetNamespace:
                 type: string
             type: object
           status:
