@@ -81,6 +81,8 @@ func addRoles(srr rbacv1.SubjectRoleRequest, sr rbacv1.SubjectRegistrar) (bool, 
 	}
 	val := sr.Status.AppliedRoles[fmt.Sprintf("%s:%s", srr.Spec.TargetNamespace, srr.Spec.Role)]
 	// need to do some type of signature here. What if there's a failure updating srr status and it needs to know it applied to role?
+	// TODO: plan has been created offline, just need to implement
+	// queueKey := fmt.Sprintf("%s:%s", sr.Namespace, sr.Name)
 	val++
 	return true, nil
 }
