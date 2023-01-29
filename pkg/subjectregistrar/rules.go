@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func updateRulesForRoles(ctx context.Context, sr *cattlerbacv1.SubjectRegistrar, c client.Client) bool {
+func UpdateRulesForRoles(ctx context.Context, sr *cattlerbacv1.SubjectRegistrar, c client.Client) bool {
 	appliedRules := make(map[string]bool)
 	for _, rule := range sr.Status.AppliedRules {
 		appliedRules[fmt.Sprintf("%s/%s", rule.Namespace, rule.String())] = true

@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"github.com/rmweir/role-keeper/pkg/subjectregistrar"
 
 	rbacv1 "github.com/rmweir/role-keeper/api/v1"
 	"github.com/sirupsen/logrus"
@@ -61,6 +62,11 @@ func (r *SubjectRegistrarReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	if subjectregistrar.UpdateRulesForRoles(ctx, &sr, r.Client) {
+		if err := r.Update(ctx, &sr); err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
+	}
 	// TODO: remove once done using as references
 	var srr rbacv1.SubjectRoleRequestList
 	if err := r.List(ctx, &srr, client.MatchingFields{"spec.subjectID": "a"}, client.MatchingFields{"spec.subjectKind": ""}); err != nil {
@@ -91,17 +97,15 @@ func (r *SubjectRegistrarReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v1.Role{}).
 		Watches(&source.Kind{Type: &v1.Role{}},
 			handler.EnqueueRequestsFromMapFunc(
-				func(object client.Object) []reconcile.Request {
-					return []reconcile.Request{}
-				})).
+				r.roleToSRR)).
 		Complete(r)
 }
 
-func roleToSRR(object client.Object, c client.Client) []reconcile.Request {
+func (r *SubjectRegistrarReconciler) roleToSRR(object client.Object) []reconcile.Request {
 	role := object.(*v1.Role)
 	fullRoleId := fmt.Sprintf("%s:%s", role.Namespace, role.Name)
 	var srs rbacv1.SubjectRegistrarList
-	if err := c.List(context.Background(), &srs, client.MatchingFields{"status.rolesApplied": fullRoleId}); err != nil {
+	if err := r.Client.List(context.Background(), &srs, client.MatchingFields{"status.rolesApplied": fullRoleId}); err != nil {
 		logrus.Errorf("error listing SubjectRegistrars that match status.roleApplied field for value [%s]", fullRoleId)
 		return nil
 	}

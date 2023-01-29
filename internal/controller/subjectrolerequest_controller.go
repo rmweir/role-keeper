@@ -18,6 +18,8 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,13 +50,39 @@ type SubjectRoleRequestReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *SubjectRoleRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
-	var srr rbacv1.SubjectRegistrarList
-	if err := r.List(ctx, &srr, client.MatchingFields{"spec.subjectID": "a"}, client.MatchingFields{"spec.subjectKind": ""}); err != nil {
+
+	var srr rbacv1.SubjectRoleRequest
+	if err := r.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, &srr); err != nil {
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	var srs rbacv1.SubjectRegistrarList
+	if err := r.List(ctx, &srs, client.MatchingFields{"spec.subjectID": "a"}, client.MatchingFields{"spec.subjectKind": ""}); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	if len(srs.Items) == 0 {
+		return ctrl.Result{}, nil
+	}
+
 	// TODO(user): your logic here
 
 	return ctrl.Result{}, nil
+}
+
+func addRoles(srr rbacv1.SubjectRoleRequest, sr rbacv1.SubjectRegistrar) (bool, error) {
+	if srr.Spec.Operation != rbacv1.AddRole {
+		// TODO: maybe turn these into a sort of noop error
+		return false, nil
+	}
+	if srr.Status.Status == rbacv1.Success {
+		// TODO: maybe turn these into a sort of noop error
+		return false, nil
+	}
+	val := sr.Status.AppliedRoles[fmt.Sprintf("%s:%s", srr.Spec.TargetNamespace, srr.Spec.Role)]
+	// need to do some type of signature here. What if there's a failure updating srr status and it needs to know it applied to role?
+	val++
+	return true, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
