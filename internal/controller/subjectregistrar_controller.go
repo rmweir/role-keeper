@@ -18,13 +18,19 @@ package controller
 
 import (
 	"context"
-	v1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"fmt"
 
 	rbacv1 "github.com/rmweir/role-keeper/api/v1"
+	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	types2 "k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // SubjectRegistrarReconciler reconciles a SubjectRegistrar object
@@ -55,10 +61,12 @@ func (r *SubjectRegistrarReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// TODO: remove once done using as references
 	var srr rbacv1.SubjectRoleRequestList
 	if err := r.List(ctx, &srr, client.MatchingFields{"spec.subjectID": "a"}, client.MatchingFields{"spec.subjectKind": ""}); err != nil {
 		return ctrl.Result{}, err
 	}
+	// denoting end of block to be removed
 
 	_ = log.FromContext(ctx)
 	// TODO(user): your logic here
@@ -68,8 +76,44 @@ func (r *SubjectRegistrarReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SubjectRegistrarReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &rbacv1.SubjectRegistrar{}, "status.rolesApplied", func(obj client.Object) []string {
+		srr := obj.(*rbacv1.SubjectRegistrar)
+		var roleNames []string
+		for key := range srr.Status.AppliedRoles {
+			roleNames = append(roleNames, key)
+		}
+		return roleNames
+	}); err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&rbacv1.SubjectRegistrar{}).
 		Owns(&v1.Role{}).
+		Watches(&source.Kind{Type: &v1.Role{}},
+			handler.EnqueueRequestsFromMapFunc(
+				func(object client.Object) []reconcile.Request {
+					return []reconcile.Request{}
+				})).
 		Complete(r)
+}
+
+func roleToSRR(object client.Object, c client.Client) []reconcile.Request {
+	role := object.(*v1.Role)
+	fullRoleId := fmt.Sprintf("%s:%s", role.Namespace, role.Name)
+	var srs rbacv1.SubjectRegistrarList
+	if err := c.List(context.Background(), &srs, client.MatchingFields{"status.rolesApplied": fullRoleId}); err != nil {
+		logrus.Errorf("error listing SubjectRegistrars that match status.roleApplied field for value [%s]", fullRoleId)
+		return nil
+	}
+
+	var result []reconcile.Request
+	for _, sr := range srs.Items {
+		result = append(result, reconcile.Request{
+			NamespacedName: types2.NamespacedName{
+				Namespace: sr.Namespace,
+				Name:      sr.Name,
+			},
+		})
+	}
+	return result
 }

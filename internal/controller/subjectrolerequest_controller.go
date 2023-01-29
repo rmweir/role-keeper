@@ -67,7 +67,7 @@ func (r *SubjectRoleRequestReconciler) SetupWithManager(mgr ctrl.Manager) error 
 	}
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &rbacv1.SubjectRoleRequest{}, "spec.subjectKind", func(obj client.Object) []string {
 		srr := obj.(*rbacv1.SubjectRoleRequest)
-		return []string{srr.Spec.SubjectKind, srr.Spec.SubjectKind}
+		return []string{srr.Spec.SubjectKind}
 	}); err != nil {
 		return err
 	}
