@@ -44,6 +44,8 @@ type AppliedRule struct {
 type SubjectRegistrarStatus struct {
 	AppliedRoles map[string]int `json:"appliedRoles,omitempty"`
 	AppliedRules []AppliedRule  `json:"appliedRules,omitempty"`
+	AddQueue     []string       `json:"addQueue,omitempty"`
+	RemoveQueue  []string       `json:"removeQueue,omitempty"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
