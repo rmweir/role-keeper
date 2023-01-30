@@ -45,6 +45,10 @@ spec:
           status:
             description: SubjectRegistrarStatus defines the observed state of SubjectRegistrar
             properties:
+              addQueue:
+                items:
+                  type: string
+                type: array
               appliedRoles:
                 additionalProperties:
                   type: integer
@@ -104,6 +108,10 @@ spec:
                     namespace:
                       type: string
                   type: object
+                type: array
+              removeQueue:
+                items:
+                  type: string
                 type: array
             type: object
         type: object
