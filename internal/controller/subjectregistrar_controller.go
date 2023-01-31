@@ -19,7 +19,9 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/rmweir/role-keeper/pkg/subjectregistrar"
+	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
 
 	rbacv1 "github.com/rmweir/role-keeper/api/v1"
 	"github.com/sirupsen/logrus"
@@ -29,7 +31,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -54,6 +55,8 @@ type SubjectRegistrarReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *SubjectRegistrarReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	_ = log.FromContext(ctx)
+
 	ns := req.Namespace
 	id := req.Name
 	var sr rbacv1.SubjectRegistrar
@@ -62,19 +65,19 @@ func (r *SubjectRegistrarReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	if subjectregistrar.UpdateRulesForRoles(ctx, &sr, r.Client) {
+	if r.UpdateRulesForRoles(ctx, sr, r.Client) {
 		if err := r.Update(ctx, &sr); err != nil {
-			return ctrl.Result{Requeue: true}, err
+			return ctrl.Result{}, err
 		}
+		return ctrl.Result{}, nil
 	}
+
 	// TODO: remove once done using as references
-	var srr rbacv1.SubjectRoleRequestList
-	if err := r.List(ctx, &srr, client.MatchingFields{"spec.subjectID": "a"}, client.MatchingFields{"spec.subjectKind": ""}); err != nil {
+	var srrs rbacv1.SubjectRoleRequestList
+	if err := r.List(ctx, &srrs, client.MatchingFields{"spec.subjectID": "a"}, client.MatchingFields{"spec.subjectKind": ""}); err != nil {
 		return ctrl.Result{}, err
 	}
 	// denoting end of block to be removed
-
-	_ = log.FromContext(ctx)
 	// TODO(user): your logic here
 
 	return ctrl.Result{}, nil
@@ -120,4 +123,41 @@ func (r *SubjectRegistrarReconciler) roleToSRR(object client.Object) []reconcile
 		})
 	}
 	return result
+}
+
+func (r *SubjectRegistrarReconciler) UpdateRulesForRoles(ctx context.Context, sr rbacv1.SubjectRegistrar, c client.Client) bool {
+	appliedRules := make(map[string]bool)
+	for _, rule := range sr.Status.AppliedRules {
+		appliedRules[fmt.Sprintf("%s/%s", rule.Namespace, rule.String())] = true
+	}
+	updatedRolesRules := make(map[string]bool)
+	for roleID := range sr.Status.AppliedRoles {
+		parts := strings.Split(roleID, ":")
+		if len(parts) != 0 && len(parts) != 2 {
+			logrus.Errorf("cannot parse role [%s] for subjectRegistrar [%s:%s]. Role name should be of format"+
+				" \"<namespace>:<id>\" or \"<id>\"", sr.Namespace, sr.Name, parts[0])
+			continue
+		}
+		var ns, name string
+		if len(parts) == 1 {
+			name = parts[0]
+		} else {
+			ns, name = parts[0], parts[1]
+		}
+
+		role := v1.Role{}
+		if err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &role); err != nil {
+			logrus.Errorf("error getting role [%s:%s]", role.Namespace, role.Name)
+			continue
+		}
+
+		addMissingRules(ns, updatedRolesRules, role.Rules)
+	}
+	return reflect.DeepEqual(appliedRules, updatedRolesRules)
+}
+
+func addMissingRules(ns string, applied map[string]bool, rules []v1.PolicyRule) {
+	for _, rule := range rules {
+		applied[fmt.Sprintf("%s/%s", ns, rule.String())] = true
+	}
 }

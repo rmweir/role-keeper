@@ -1,5 +1,6 @@
 package subjectregistrar
 
+//TODO will probably want to delete this file and keep structure simple for now
 import (
 	"context"
 	"fmt"
