@@ -49,12 +49,13 @@ type SubjectRoleRequestStatus struct {
 	Status RequestStatus `json:"status,omitempty"`
 }
 
-// +kubebuilder:validation:Enum=Successful;Failure
+// +kubebuilder:validation:Enum=Successful;Failure;InQueue
 
 type RequestStatus string
 
 const (
 	Success RequestStatus = "Successful"
+	InQueue RequestStatus = "InQueue"
 	Failure RequestStatus = "Failure"
 )
 
