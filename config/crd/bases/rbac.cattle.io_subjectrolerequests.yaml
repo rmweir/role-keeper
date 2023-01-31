@@ -59,6 +59,7 @@ spec:
                 enum:
                 - Successful
                 - Failure
+                - InQueue
                 type: string
             type: object
         type: object
