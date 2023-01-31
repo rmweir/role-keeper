@@ -60,27 +60,48 @@ func (r *SubjectRegistrarReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	ns := req.Namespace
 	id := req.Name
 	var sr rbacv1.SubjectRegistrar
-
 	if err := r.Get(ctx, client.ObjectKey{Namespace: ns, Name: id}, &sr); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if r.UpdateRulesForRoles(ctx, sr, r.Client) {
-		if err := r.Update(ctx, &sr); err != nil {
-			return ctrl.Result{}, err
-		}
+	updated, err := r.UpdateRulesForRoles(ctx, sr)
+	if err != nil {
+		return ctrl.Result{Requeue: true}, err
+	}
+	if updated {
 		return ctrl.Result{}, nil
 	}
 
-	// TODO: remove once done using as references
-	var srrs rbacv1.SubjectRoleRequestList
-	if err := r.List(ctx, &srrs, client.MatchingFields{"spec.subjectID": "a"}, client.MatchingFields{"spec.subjectKind": ""}); err != nil {
-		return ctrl.Result{}, err
+	updated, err = r.processAddQueue(ctx, sr)
+	if err != nil {
+		return ctrl.Result{Requeue: true}, err
 	}
-	// denoting end of block to be removed
-	// TODO(user): your logic here
-
+	if updated {
+		return ctrl.Result{}, nil
+	}
 	return ctrl.Result{}, nil
+}
+
+func (r *SubjectRegistrarReconciler) processAddQueue(ctx context.Context, sr rbacv1.SubjectRegistrar) (bool, error) {
+	var update bool
+	if len(sr.Status.AddQueue) == 0 {
+		return update, nil
+	}
+	for _, srrID := range sr.Status.AddQueue {
+		parts := strings.Split(srrID, ":")
+		if len(parts) != 2 {
+			logrus.Errorf("improper format for SubjectRoleRequest ID [%s] in SubjectRegistrar [%s:%s] AddRoles field."+
+				" Should be of format \"<namespace>:<name>\"", srrID, sr.Namespace, sr.Name)
+		}
+		val := sr.Status.AppliedRoles[srrID] + 1
+		sr.Status.AppliedRoles[srrID] = val
+		update = true
+	}
+	(&sr).Status.AddQueue = []string{}
+	if err := r.Client.Status().Update(ctx, &sr); err != nil {
+		return false, fmt.Errorf("")
+	}
+	return true, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -125,12 +146,13 @@ func (r *SubjectRegistrarReconciler) roleToSRR(object client.Object) []reconcile
 	return result
 }
 
-func (r *SubjectRegistrarReconciler) UpdateRulesForRoles(ctx context.Context, sr rbacv1.SubjectRegistrar, c client.Client) bool {
-	appliedRules := make(map[string]bool)
+func (r *SubjectRegistrarReconciler) UpdateRulesForRoles(ctx context.Context, sr rbacv1.SubjectRegistrar) (bool, error) {
+	appliedRules := make(map[string]rbacv1.AppliedRule)
 	for _, rule := range sr.Status.AppliedRules {
-		appliedRules[fmt.Sprintf("%s/%s", rule.Namespace, rule.String())] = true
+		appliedRules[fmt.Sprintf("%s/%s", rule.Namespace, rule.String())] = rule
 	}
-	updatedRolesRules := make(map[string]bool)
+
+	updatedRolesRules := make(map[string]rbacv1.AppliedRule)
 	for roleID := range sr.Status.AppliedRoles {
 		parts := strings.Split(roleID, ":")
 		if len(parts) != 0 && len(parts) != 2 {
@@ -146,18 +168,29 @@ func (r *SubjectRegistrarReconciler) UpdateRulesForRoles(ctx context.Context, sr
 		}
 
 		role := v1.Role{}
-		if err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &role); err != nil {
+		if err := r.Client.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &role); err != nil {
 			logrus.Errorf("error getting role [%s:%s]", role.Namespace, role.Name)
 			continue
 		}
 
 		addMissingRules(ns, updatedRolesRules, role.Rules)
 	}
-	return reflect.DeepEqual(appliedRules, updatedRolesRules)
+	if reflect.DeepEqual(appliedRules, updatedRolesRules) {
+		return false, nil
+	}
+	var result []rbacv1.AppliedRule
+	for _, appliedRule := range updatedRolesRules {
+		result = append(result, appliedRule)
+	}
+	sr.Status.AppliedRules = result
+	if err := r.Client.Status().Update(ctx, &sr); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
-func addMissingRules(ns string, applied map[string]bool, rules []v1.PolicyRule) {
+func addMissingRules(ns string, applied map[string]rbacv1.AppliedRule, rules []v1.PolicyRule) {
 	for _, rule := range rules {
-		applied[fmt.Sprintf("%s/%s", ns, rule.String())] = true
+		applied[fmt.Sprintf("%s/%s", ns, rule.String())] = rbacv1.AppliedRule{Namespace: ns, PolicyRule: rule}
 	}
 }
