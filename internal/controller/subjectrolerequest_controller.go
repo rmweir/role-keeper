@@ -83,7 +83,7 @@ func (r *SubjectRoleRequestReconciler) setSuccess(ctx context.Context, srr rbacv
 	if srr.Status.Status == rbacv1.Success {
 		return nil
 	}
-	(&srr).Status.Status = rbacv1.Success
+	srr.Status.Status = rbacv1.Success
 	return r.Client.Status().Update(ctx, &srr)
 }
 
@@ -111,7 +111,7 @@ func (r *SubjectRoleRequestReconciler) addToQueue(ctx context.Context, srr rbacv
 		return false, nil
 	}
 
-	updateSR, err := addRoles(srr, sr)
+	updateSR, err := addSubjectRoleRequestToQueue(srr, sr)
 	if err != nil {
 		return false, err
 	}
@@ -123,8 +123,10 @@ func (r *SubjectRoleRequestReconciler) addToQueue(ctx context.Context, srr rbacv
 		return true, nil
 	}
 
-	(&srr).Status.Status = rbacv1.InQueue
-	r.Client.Status().Update(ctx, &srr)
+	srr.Status.Status = rbacv1.InQueue
+	if err = r.Client.Status().Update(ctx, &srr); err != nil {
+		return false, fmt.Errorf("failed to update SubjectRoleRequest [%s:%s] status to \"InQueue\"", srr.Namespace, srr.Name)
+	}
 	return true, nil
 }
 
@@ -140,7 +142,7 @@ func shouldWaitForQueueExit(srr rbacv1.SubjectRoleRequest, sr rbacv1.SubjectRegi
 	return false
 }
 
-func addRoles(srr rbacv1.SubjectRoleRequest, sr rbacv1.SubjectRegistrar) (bool, error) {
+func addSubjectRoleRequestToQueue(srr rbacv1.SubjectRoleRequest, sr rbacv1.SubjectRegistrar) (bool, error) {
 	if srr.Spec.Operation != rbacv1.AddRole {
 		// TODO: maybe turn these into a sort of noop error
 		return false, nil
@@ -167,9 +169,7 @@ func addRoles(srr rbacv1.SubjectRoleRequest, sr rbacv1.SubjectRegistrar) (bool, 
 	if !isQueued {
 		(&sr).Status.AddQueue = append(sr.Status.AddQueue, queueKey)
 	}
-	// need to do some type of signature here. What if there's a failure updating srr status and it needs to know it applied to role?
-	// scratch that^ not using signatures
-	// TODO: plan has been created offline, just need to implement
+
 	return true, nil
 }
 
