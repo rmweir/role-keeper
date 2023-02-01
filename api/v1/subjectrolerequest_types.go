@@ -46,7 +46,8 @@ const (
 // SubjectRoleRequestStatus defines the observed state of SubjectRoleRequest
 type SubjectRoleRequestStatus struct {
 	// +optional
-	Status RequestStatus `json:"status,omitempty"`
+	Status         RequestStatus `json:"status,omitempty"`
+	FailureMessage string        `json:"failureMessage,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=Successful;Failure;InQueue
