@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	errors2 "github.com/pkg/errors"
 	rbacv1 "github.com/rmweir/role-keeper/api/v1"
@@ -64,9 +65,9 @@ func (r *SubjectRegistrarReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	_ = log.FromContext(ctx)
 
 	ns := req.Namespace
-	id := req.Name
+	name := req.Name
 	var sr rbacv1.SubjectRegistrar
-	if err := r.Get(ctx, client.ObjectKey{Namespace: ns, Name: id}, &sr); err != nil {
+	if err := r.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &sr); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -78,28 +79,40 @@ func (r *SubjectRegistrarReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	updated, err = r.processAddQueue(ctx, sr)
+	waitingOnSubjectRoleRequestStatus, updated, err := r.processAddQueue(ctx, sr)
 	if err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
 	if updated {
 		return ctrl.Result{}, nil
 	}
+	if waitingOnSubjectRoleRequestStatus {
+		requeuTime := 5 * time.Second
+		logrus.Debugf("waiting on SubjectRoleRequest(s) status. Requeueing SubjectRegistrar [%s:%s] after [%s]"+
+			" has elapsed", sr.Namespace, sr.Name, requeuTime)
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
 	return ctrl.Result{}, nil
 }
 
-func (r *SubjectRegistrarReconciler) processAddQueue(ctx context.Context, sr rbacv1.SubjectRegistrar) (bool, error) {
+func (r *SubjectRegistrarReconciler) processAddQueue(ctx context.Context, sr rbacv1.SubjectRegistrar) (bool, bool, error) {
 	srID := fmt.Sprintf("%s:%s", sr.Namespace, sr.Name)
 	if len(sr.Status.AddQueue) == 0 {
 		logrus.Debugf("skipping processing addQueue for SubjectRegistrar [%s] because it is empty", srID)
-		return false, nil
+		return false, false, nil
 	}
 
 	var waitingOnSubjectRoleRequestStatusToChange []string
 	for _, srrID := range sr.Status.AddQueue {
 		srr, validationErr, err := r.getSubjectRoleRequestFromID(ctx, srrID)
 		if err != nil {
-			return false, err
+			return false, false, err
+		}
+
+		if validationErr != nil {
+			logrus.Errorf("invalid SubjectRoleRequest ID [%s]. Removing from SubjectRegistrar [%s] addQueue", srrID, srID)
+			continue
 		}
 
 		if srr.Status.Status != rbacv1.InQueue {
@@ -108,32 +121,34 @@ func (r *SubjectRegistrarReconciler) processAddQueue(ctx context.Context, sr rba
 			waitingOnSubjectRoleRequestStatusToChange = append(waitingOnSubjectRoleRequestStatusToChange, srrID)
 			continue
 		}
-		if validationErr != nil {
-			logrus.Errorf("invalid SubjectRoleRequest ID [%s]. Removing from SubjectRegistrar [%s] addQueue", srrID, srID)
-			continue
-		}
 
 		validationErr, err = r.validateRoleFromID(ctx, fmt.Sprintf(srr.Spec.Role))
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
 		if validationErr != nil {
 			logrus.Errorf("invalid v1.Role ID [%s] on SubjectRoleRequest [%s]. Removing from SubjectRegistrar [%s] addQueue", srr.Spec.Role, srrID, srID)
 		}
 
 		if err = r.writeErrToSubjectRoleRequest(ctx, srr, validationErr); err != nil {
-			return false, err
+			return false, false, err
 		}
 
-		appliedRoleKey := fmt.Sprintf("%s:%s", srr.Spec.TargetNamespace, srrID)
+		appliedRoleKey := fmt.Sprintf("%s:%s", srr.Spec.TargetNamespace, srr.Spec.Role)
+		if sr.Status.AppliedRoles == nil {
+			sr.Status.AppliedRoles = make(map[string]int)
+		}
 		val := sr.Status.AppliedRoles[appliedRoleKey] + 1
-		sr.Status.AppliedRoles[srrID] = val
+		sr.Status.AppliedRoles[appliedRoleKey] = val
+	}
+	if len(sr.Status.AddQueue) == len(waitingOnSubjectRoleRequestStatusToChange) {
+		return len(waitingOnSubjectRoleRequestStatusToChange) > 0, false, nil
 	}
 	sr.Status.AddQueue = waitingOnSubjectRoleRequestStatusToChange
 	if err := r.Client.Status().Update(ctx, &sr); err != nil {
-		return false, fmt.Errorf("")
+		return len(waitingOnSubjectRoleRequestStatusToChange) > 0, false, fmt.Errorf("")
 	}
-	return true, nil
+	return len(waitingOnSubjectRoleRequestStatusToChange) > 0, true, nil
 }
 
 func (r *SubjectRegistrarReconciler) writeErrToSubjectRoleRequest(ctx context.Context, srr rbacv1.SubjectRoleRequest, err error) error {
@@ -228,6 +243,7 @@ func (r *SubjectRegistrarReconciler) roleToSRR(object client.Object) []reconcile
 	return result
 }
 
+// TODO: consider removing rules from SubjectRegistrar
 func (r *SubjectRegistrarReconciler) UpdateRulesForRoles(ctx context.Context, sr rbacv1.SubjectRegistrar) (bool, error) {
 	appliedRules := make(map[string]rbacv1.AppliedRule)
 	for _, rule := range sr.Status.AppliedRules {
@@ -246,7 +262,7 @@ func (r *SubjectRegistrarReconciler) UpdateRulesForRoles(ctx context.Context, sr
 
 		role := v1.Role{}
 		if err := r.Client.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &role); err != nil {
-			logrus.Errorf("error getting role [%s:%s]", role.Namespace, role.Name)
+			logrus.Errorf("error getting role [%s:%s]", ns, name)
 			continue
 		}
 

@@ -19,6 +19,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	errors2 "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,6 +56,11 @@ func (r *SubjectRoleRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	var srr rbacv1.SubjectRoleRequest
 	if err := r.Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, &srr); err != nil {
+		if errors2.IsNotFound(err) {
+			logrus.Infof("SubjectRoleRequest [%s:%s] is not found. Will not requeue for SubjectRoleRequest [%s:%s]",
+				srr.Namespace, srr.Name, srr.Namespace, srr.Name)
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -111,20 +119,12 @@ func (r *SubjectRoleRequestReconciler) addToQueue(ctx context.Context, srr rbacv
 		return false, nil
 	}
 
-	updateSR, err := addSubjectRoleRequestToQueue(srr, sr)
-	if err != nil {
+	if err := r.addSubjectRoleRequestToQueue(ctx, srr, sr); err != nil {
 		return false, err
 	}
 
-	if updateSR {
-		if err := r.Client.Status().Update(ctx, &sr); err != nil {
-			return false, err
-		}
-		return true, nil
-	}
-
 	srr.Status.Status = rbacv1.InQueue
-	if err = r.Client.Status().Update(ctx, &srr); err != nil {
+	if err := r.Client.Status().Update(ctx, &srr); err != nil {
 		return false, fmt.Errorf("failed to update SubjectRoleRequest [%s:%s] status to \"InQueue\"", srr.Namespace, srr.Name)
 	}
 	return true, nil
@@ -135,59 +135,59 @@ func shouldWaitForQueueExit(srr rbacv1.SubjectRoleRequest, sr rbacv1.SubjectRegi
 		return false
 	}
 	for _, srrInQueue := range sr.Status.AddQueue {
-		if getSubjectRoleRequestQueueKey(sr) == srrInQueue {
+		if getSubjectRoleRequestQueueKey(srr) == srrInQueue {
 			return true
 		}
 	}
 	return false
 }
 
-func addSubjectRoleRequestToQueue(srr rbacv1.SubjectRoleRequest, sr rbacv1.SubjectRegistrar) (bool, error) {
+func (r *SubjectRoleRequestReconciler) addSubjectRoleRequestToQueue(ctx context.Context, srr rbacv1.SubjectRoleRequest, sr rbacv1.SubjectRegistrar) error {
 	if srr.Spec.Operation != rbacv1.AddRole {
 		// TODO: maybe turn these into a sort of noop error
-		return false, nil
+		return nil
 	}
 	if srr.Status.Status == rbacv1.Success {
 		// TODO: maybe turn these into a sort of noop error
-		return false, nil
+		return nil
 	}
 	if srr.Status.Status == rbacv1.InQueue {
 		// TODO: maybe turn these into a sort of noop error
-		return false, nil
+		return nil
 	}
 
-	queueKey := getSubjectRoleRequestQueueKey(sr)
-	var isQueued bool
+	queueKey := getSubjectRoleRequestQueueKey(srr)
 	// check if already in queue
 	for _, srrInQueue := range sr.Status.AddQueue {
 		if srrInQueue == queueKey {
-			isQueued = true
-			break
+			return nil
 		}
 	}
 
-	if !isQueued {
-		(&sr).Status.AddQueue = append(sr.Status.AddQueue, queueKey)
+	sr.Status.AddQueue = append(sr.Status.AddQueue, queueKey)
+	err := r.Client.Status().Update(ctx, &sr)
+	if err != nil {
+		return errors.WithStack(err)
 	}
-
-	return true, nil
+	logrus.Debugf("Added key [%s] to SubjectRegistrar AddQueue", queueKey)
+	return nil
 }
 
-func getSubjectRoleRequestQueueKey(sr rbacv1.SubjectRegistrar) string {
+func getSubjectRoleRequestQueueKey(sr rbacv1.SubjectRoleRequest) string {
 	return fmt.Sprintf("%s:%s", sr.Namespace, sr.Name)
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SubjectRoleRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &rbacv1.SubjectRoleRequest{}, "spec.subjectID", func(obj client.Object) []string {
-		srr := obj.(*rbacv1.SubjectRoleRequest)
-		return []string{srr.Spec.SubjectID}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &rbacv1.SubjectRegistrar{}, "spec.subjectID", func(obj client.Object) []string {
+		sr := obj.(*rbacv1.SubjectRegistrar)
+		return []string{sr.Spec.SubjectID}
 	}); err != nil {
 		return err
 	}
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &rbacv1.SubjectRoleRequest{}, "spec.subjectKind", func(obj client.Object) []string {
-		srr := obj.(*rbacv1.SubjectRoleRequest)
-		return []string{srr.Spec.SubjectKind}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &rbacv1.SubjectRegistrar{}, "spec.subjectKind", func(obj client.Object) []string {
+		sr := obj.(*rbacv1.SubjectRegistrar)
+		return []string{sr.Spec.SubjectKind}
 	}); err != nil {
 		return err
 	}
