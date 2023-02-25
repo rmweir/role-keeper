@@ -42,10 +42,11 @@ type AppliedRule struct {
 
 // SubjectRegistrarStatus defines the observed state of SubjectRegistrar
 type SubjectRegistrarStatus struct {
-	AppliedRoles map[string]int `json:"appliedRoles,omitempty"`
-	AppliedRules []AppliedRule  `json:"appliedRules,omitempty"`
-	AddQueue     []string       `json:"addQueue,omitempty"`
-	RemoveQueue  []string       `json:"removeQueue,omitempty"`
+	// AppliedRoles keeps track of counts of how many times a RoleRef has been applied to a namespace
+	AppliedRoles map[v12.RoleRef]map[string]int `json:"appliedRoles,omitempty"`
+	AppliedRules []v12.RoleRef                  `json:"appliedRules,omitempty"`
+	AddQueue     []v12.RoleRef                  `json:"addQueue,omitempty"`
+	RemoveQueue  []v12.RoleRef                  `json:"removeQueue,omitempty"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
