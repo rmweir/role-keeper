@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	v1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,11 +28,16 @@ import (
 type SubjectRoleRequestSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	SubjectID       string    `json:"subjectID,omitempty"`
-	SubjectKind     string    `json:"subjectKind,omitempty"`
-	Operation       Operation `json:"operation,omitempty"`
-	Role            string    `json:"role,omitempty"`
-	TargetNamespace string    `json:"targetNamespace,omitempty"`
+	SubjectID       string       `json:"subjectID,omitempty"`
+	SubjectKind     string       `json:"subjectKind,omitempty"`
+	Operation       Operation    `json:"operation,omitempty"`
+	RoleContract    RoleContract `json:"roleContract,omitempty"`
+	TargetNamespace string       `json:"targetNamespace,omitempty"`
+}
+
+type RoleContract struct {
+	Role      v1.RoleRef `json:"role,omitempty"`
+	Namespace string     `json:"namespace,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=AddRole;RemoveRole

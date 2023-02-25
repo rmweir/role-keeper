@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -71,13 +70,15 @@ func (r *SubjectRegistrarReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	updated, err := r.UpdateRulesForRoles(ctx, sr)
-	if err != nil {
-		return ctrl.Result{Requeue: true}, err
-	}
-	if updated {
-		return ctrl.Result{}, nil
-	}
+	/*
+		updated, err := r.UpdateRulesForRoles(ctx, sr)
+		if err != nil {
+			return ctrl.Result{Requeue: true}, err
+		}
+		if updated {
+			return ctrl.Result{}, nil
+		}
+	*/
 
 	waitingOnSubjectRoleRequestStatus, updated, err := r.processAddQueue(ctx, sr)
 	if err != nil {
@@ -122,24 +123,26 @@ func (r *SubjectRegistrarReconciler) processAddQueue(ctx context.Context, sr rba
 			continue
 		}
 
-		validationErr, err = r.validateRoleFromID(ctx, fmt.Sprintf(srr.Spec.Role))
+		validationErr, err = r.validateRole(ctx, srr.Spec.RoleContract.Role.Name)
 		if err != nil {
 			return false, false, err
 		}
 		if validationErr != nil {
-			logrus.Errorf("invalid v1.Role ID [%s] on SubjectRoleRequest [%s]. Removing from SubjectRegistrar [%s] addQueue", srr.Spec.Role, srrID, srID)
+			logrus.Errorf("invalid RoleContract [Role: %s, Namespace: %s] on SubjectRoleRequest [%s]. Removing from SubjectRegistrar [%s] addQueue",
+				srr.Spec.RoleContract.Role, srr.Spec.RoleContract.Namespace, srrID, srID)
 		}
 
 		if err = r.writeErrToSubjectRoleRequest(ctx, srr, validationErr); err != nil {
 			return false, false, err
 		}
 
-		appliedRoleKey := fmt.Sprintf("%s:%s", srr.Spec.TargetNamespace, srr.Spec.Role)
 		if sr.Status.AppliedRoles == nil {
-			sr.Status.AppliedRoles = make(map[string]int)
+			sr.Status.AppliedRoles = make(map[v1.RoleRef]map[string]int)
 		}
-		val := sr.Status.AppliedRoles[appliedRoleKey] + 1
-		sr.Status.AppliedRoles[appliedRoleKey] = val
+		if sr.Status.AppliedRoles[srr.Spec.RoleContract.Role] == nil {
+			sr.Status.AppliedRoles[srr.Spec.RoleContract.Role] = make(map[string]int)
+		}
+		sr.Status.AppliedRoles[srr.Spec.RoleContract.Role][srr.Spec.RoleContract.Namespace]++
 	}
 	if len(sr.Status.AddQueue) == len(waitingOnSubjectRoleRequestStatusToChange) {
 		return len(waitingOnSubjectRoleRequestStatusToChange) > 0, false, nil
@@ -161,7 +164,7 @@ func (r *SubjectRegistrarReconciler) writeErrToSubjectRoleRequest(ctx context.Co
 	return errors2.WithStack(r.Client.Update(ctx, &srr))
 }
 
-func (r *SubjectRegistrarReconciler) validateRoleFromID(ctx context.Context, id string) (error, error) {
+func (r *SubjectRegistrarReconciler) validateRole(ctx context.Context, id string) (error, error) {
 	parts := strings.Split(id, ":")
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid role ID [%s]. ID should be of the format <roleNamespace:roleName>", id), nil
@@ -198,18 +201,18 @@ func (r *SubjectRegistrarReconciler) getSubjectRoleRequestFromID(ctx context.Con
 // SetupWithManager sets up the controller with the Manager.
 func (r *SubjectRegistrarReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &rbacv1.SubjectRegistrar{}, RolesAppliedIndexField, func(obj client.Object) []string {
+		// TODO: not sure what I was planning to use an indexer like this for, will revisit in the future
 		sr := obj.(*rbacv1.SubjectRegistrar)
-		var roleNames []string
-		for key := range sr.Status.AppliedRoles {
-			parts := strings.Split(key, ":")
-			if len(parts) != 3 {
-				logrus.Debugf("indexer [%s] could not parse AppliedRole ID [%s] from SubjectRegistrar [%s:%s]. AppliedRoleID should be of the format "+
-					"<targetNamespace>:<roleNamespace>:<roleName>", RolesAppliedIndexField, key, sr.Namespace, sr.Name)
-				continue
+		var rolesApplied []string
+		for key, val := range sr.Status.AppliedRoles {
+			for namespace, count := range val {
+				if count == 0 {
+					continue
+				}
+				rolesApplied = append(rolesApplied, fmt.Sprintf("%s:%s:%s", key.Kind, namespace, key.Name))
 			}
-			roleNames = append(roleNames, key)
 		}
-		return roleNames
+		return rolesApplied
 	}); err != nil {
 		return err
 	}
@@ -243,6 +246,7 @@ func (r *SubjectRegistrarReconciler) roleToSRR(object client.Object) []reconcile
 	return result
 }
 
+/*
 // TODO: consider removing rules from SubjectRegistrar
 func (r *SubjectRegistrarReconciler) UpdateRulesForRoles(ctx context.Context, sr rbacv1.SubjectRegistrar) (bool, error) {
 	appliedRules := make(map[string]rbacv1.AppliedRule)
@@ -251,22 +255,18 @@ func (r *SubjectRegistrarReconciler) UpdateRulesForRoles(ctx context.Context, sr
 	}
 
 	updatedRolesRules := make(map[string]rbacv1.AppliedRule)
-	for roleID := range sr.Status.AppliedRoles {
+	for key, val := range sr.Status.AppliedRoles {
 		parts := strings.Split(roleID, ":")
-		if len(parts) != 3 {
-			logrus.Errorf("cannot parse role [%s] for subjectRegistrar [%s:%s]. Role name should be of format"+
-				" \"<targetNamespace>:<roleNamespace>:<roleName>\"", roleID, sr.Namespace, sr.Name)
-			continue
-		}
-		targetNS, ns, name := parts[0], parts[1], parts[2]
+		for namespace, count := range val {
+			if key.Kind == "Role" {}
+			role := v1.Role{}
+			if err := r.Client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: key.Name}, &role); err != nil {
+				logrus.Errorf("error getting role [%s:%s]", ns, name)
+				continue
+			}
 
-		role := v1.Role{}
-		if err := r.Client.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &role); err != nil {
-			logrus.Errorf("error getting role [%s:%s]", ns, name)
-			continue
+			addMissingRules(targetNS, updatedRolesRules, role.Rules)
 		}
-
-		addMissingRules(targetNS, updatedRolesRules, role.Rules)
 	}
 	if reflect.DeepEqual(appliedRules, updatedRolesRules) {
 		return false, nil
@@ -281,6 +281,7 @@ func (r *SubjectRegistrarReconciler) UpdateRulesForRoles(ctx context.Context, sr
 	}
 	return true, nil
 }
+*/
 
 func addMissingRules(ns string, applied map[string]rbacv1.AppliedRule, rules []v1.PolicyRule) {
 	for _, rule := range rules {
