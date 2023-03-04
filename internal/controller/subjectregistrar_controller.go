@@ -137,12 +137,12 @@ func (r *SubjectRegistrarReconciler) processAddQueue(ctx context.Context, sr rba
 		}
 
 		if sr.Status.AppliedRoles == nil {
-			sr.Status.AppliedRoles = make(map[v1.RoleRef]map[string]int)
+			sr.Status.AppliedRoles = make(map[string]map[string]int)
 		}
-		if sr.Status.AppliedRoles[srr.Spec.RoleContract.Role] == nil {
-			sr.Status.AppliedRoles[srr.Spec.RoleContract.Role] = make(map[string]int)
+		if sr.Status.AppliedRoles[srr.Spec.RoleContract.Role.String()] == nil {
+			sr.Status.AppliedRoles[srr.Spec.RoleContract.Role.String()] = make(map[string]int)
 		}
-		sr.Status.AppliedRoles[srr.Spec.RoleContract.Role][srr.Spec.RoleContract.Namespace]++
+		sr.Status.AppliedRoles[srr.Spec.RoleContract.Role.String()][srr.Spec.RoleContract.Namespace]++
 	}
 	if len(sr.Status.AddQueue) == len(waitingOnSubjectRoleRequestStatusToChange) {
 		return len(waitingOnSubjectRoleRequestStatusToChange) > 0, false, nil
@@ -209,7 +209,7 @@ func (r *SubjectRegistrarReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				if count == 0 {
 					continue
 				}
-				rolesApplied = append(rolesApplied, fmt.Sprintf("%s:%s:%s", key.Kind, namespace, key.Name))
+				rolesApplied = append(rolesApplied, fmt.Sprintf("%s:%s", namespace, key))
 			}
 		}
 		return rolesApplied
