@@ -28,13 +28,15 @@ import (
 type SubjectRoleRequestSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Operation    Operation    `json:"operation,omitempty"`
+	SubjectID    string       `json:"subjectID,omitempty"`
+	SubjectKind  string       `json:"subjectKind,omitempty"`
 	RoleContract RoleContract `json:"roleContract,omitempty"`
 }
 
 type RoleContract struct {
 	Role      v1.RoleRef `json:"role,omitempty"`
 	Namespace string     `json:"namespace,omitempty"`
+	Operation Operation  `json:"operation,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=AddRole;RemoveRole
