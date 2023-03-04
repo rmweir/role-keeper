@@ -46,12 +46,20 @@ spec:
             description: SubjectRegistrarStatus defines the observed state of SubjectRegistrar
             properties:
               addQueue:
+                description: AddQueue keeps track of SubjectRoleRequests that need
+                  to be applied. The string represents the SRR's ID.
                 items:
                   type: string
                 type: array
               appliedRoles:
                 additionalProperties:
-                  type: integer
+                  additionalProperties:
+                    type: integer
+                  type: object
+                description: AppliedRoles keeps track of counts of how many times
+                  a RoleRef has been applied to a namespace. The first string key
+                  is the String from RoleRef and the second string represents namespace
+                  ID.
                 type: object
               appliedRules:
                 items:
