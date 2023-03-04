@@ -173,8 +173,8 @@ func (r *SubjectRoleRequestReconciler) addSubjectRoleRequestToQueue(ctx context.
 	return nil
 }
 
-func getSubjectRoleRequestQueueKey(sr rbacv1.SubjectRoleRequest) string {
-	return fmt.Sprintf("%s:%s", sr.Namespace, sr.Name)
+func getSubjectRoleRequestQueueKey(srr rbacv1.SubjectRoleRequest) string {
+	return fmt.Sprintf("%s:%s", srr.Namespace, srr.Name)
 }
 
 // SetupWithManager sets up the controller with the Manager.

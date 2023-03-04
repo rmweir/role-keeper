@@ -123,7 +123,7 @@ func (r *SubjectRegistrarReconciler) processAddQueue(ctx context.Context, sr rba
 			continue
 		}
 
-		validationErr, err = r.validateRole(ctx, srr.Spec.RoleContract.Role.Name)
+		validationErr, err = r.validateRole(ctx, srr.Spec.RoleContract.Role, srr.Spec.RoleContract.Namespace)
 		if err != nil {
 			return false, false, err
 		}
@@ -164,19 +164,26 @@ func (r *SubjectRegistrarReconciler) writeErrToSubjectRoleRequest(ctx context.Co
 	return errors2.WithStack(r.Client.Update(ctx, &srr))
 }
 
-func (r *SubjectRegistrarReconciler) validateRole(ctx context.Context, id string) (error, error) {
-	parts := strings.Split(id, ":")
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid role ID [%s]. ID should be of the format <roleNamespace:roleName>", id), nil
-	}
-
-	var role v1.Role
-	err := r.Client.Get(ctx, client.ObjectKey{Namespace: parts[0], Name: parts[1]}, &role)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return fmt.Errorf("invalid role [%s]: %w", id, err), nil
+func (r *SubjectRegistrarReconciler) validateRole(ctx context.Context, roleRef v1.RoleRef, ns string) (error, error) {
+	switch roleRef.Kind {
+	case "ClusterRole":
+		var clusterRole v1.ClusterRole
+		err := r.Client.Get(ctx, client.ObjectKey{Name: roleRef.Name}, &clusterRole)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return fmt.Errorf("invalid RoleRef [%s] of kind ClusterRole: %w", roleRef.Name, err), nil
+			}
+			return nil, err
 		}
-		return nil, err
+	case "Role":
+		var role v1.Role
+		err := r.Client.Get(ctx, client.ObjectKey{Namespace: ns, Name: roleRef.Name}, &role)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return fmt.Errorf("invalid RoleRef [%s] of kind Role in NS [%s]: %w", roleRef.Name, ns, err), nil
+			}
+			return nil, err
+		}
 	}
 	return nil, nil
 }
