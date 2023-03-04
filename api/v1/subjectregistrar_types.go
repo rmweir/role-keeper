@@ -42,10 +42,10 @@ type AppliedRule struct {
 
 // SubjectRegistrarStatus defines the observed state of SubjectRegistrar
 type SubjectRegistrarStatus struct {
-	// AppliedRoles keeps track of counts of how many times a RoleRef has been applied to a namespace. The string represents
-	// namespace ID.
-	AppliedRoles map[v12.RoleRef]map[string]int `json:"appliedRoles,omitempty"`
-	AppliedRules []AppliedRule                  `json:"appliedRules,omitempty"`
+	// AppliedRoles keeps track of counts of how many times a RoleRef has been applied to a namespace. The first string
+	// key is the String from RoleRef and the second string represents namespace ID.
+	AppliedRoles map[string]map[string]int `json:"appliedRoles,omitempty"`
+	AppliedRules []AppliedRule             `json:"appliedRules,omitempty"`
 	// AddQueue keeps track of SubjectRoleRequests that need to be applied. The string represents the SRR's ID.
 	AddQueue    []string `json:"addQueue,omitempty"`
 	RemoveQueue []string `json:"removeQueue,omitempty"`
