@@ -143,7 +143,7 @@ func shouldWaitForQueueExit(srr rbacv1.SubjectRoleRequest, sr rbacv1.SubjectRegi
 }
 
 func (r *SubjectRoleRequestReconciler) addSubjectRoleRequestToQueue(ctx context.Context, srr rbacv1.SubjectRoleRequest, sr rbacv1.SubjectRegistrar) error {
-	if srr.Spec.Operation != rbacv1.AddRole {
+	if srr.Spec.RoleContract.Operation != rbacv1.AddRole {
 		// TODO: maybe turn these into a sort of noop error
 		return nil
 	}
