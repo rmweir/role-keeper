@@ -36,14 +36,14 @@ spec:
           spec:
             description: SubjectRoleRequestSpec defines the desired state of SubjectRoleRequest
             properties:
-              operation:
-                enum:
-                - AddRole
-                - RemoveRole
-                type: string
               roleContract:
                 properties:
                   namespace:
+                    type: string
+                  operation:
+                    enum:
+                    - AddRole
+                    - RemoveRole
                     type: string
                   role:
                     description: RoleRef contains information that points to the role
@@ -71,8 +71,6 @@ spec:
                   Important: Run "make" to regenerate code after modifying this file'
                 type: string
               subjectKind:
-                type: string
-              targetNamespace:
                 type: string
             type: object
           status:
