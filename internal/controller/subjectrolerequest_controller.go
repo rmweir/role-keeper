@@ -84,6 +84,9 @@ func (r *SubjectRoleRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
+	if err = r.setSuccess(ctx, srr); err != nil {
+		return ctrl.Result{Requeue: true}, err
+	}
 	return ctrl.Result{}, nil
 }
 

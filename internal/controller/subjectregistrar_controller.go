@@ -232,6 +232,8 @@ func (r *SubjectRegistrarReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+// TODO might be able to remove this once rules stop being recorded but should use to inform how to
+// create an enqueue requests map func for srr from sr
 func (r *SubjectRegistrarReconciler) roleToSRR(object client.Object) []reconcile.Request {
 	role := object.(*v1.Role)
 	fullRoleId := fmt.Sprintf("%s:%s", role.Namespace, role.Name)
