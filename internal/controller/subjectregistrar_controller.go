@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/json"
 	"strings"
 	"time"
 
@@ -139,8 +140,14 @@ func (r *SubjectRegistrarReconciler) processAddQueue(ctx context.Context, sr rba
 		if sr.Status.AppliedRoles == nil {
 			sr.Status.AppliedRoles = make(map[string]map[string]int)
 		}
-		if sr.Status.AppliedRoles[srr.Spec.RoleContract.Role.String()] == nil {
-			sr.Status.AppliedRoles[srr.Spec.RoleContract.Role.String()] = make(map[string]int)
+		roleBytes, err := json.Marshal(&srr.Spec.RoleContract.Role)
+		if err != nil {
+			logrus.Errorf("failed to marshal Role [%s] for RoleContract on SubjectRoleRequest [%s]. Removing from SubjectRegistrar [%s] addQueue", srr.Spec.RoleContract.Role, srrID, srID)
+			continue
+		}
+
+		if sr.Status.AppliedRoles[string(roleBytes)] == nil {
+			sr.Status.AppliedRoles[string(roleBytes)] = make(map[string]int)
 		}
 		sr.Status.AppliedRoles[srr.Spec.RoleContract.Role.String()][srr.Spec.RoleContract.Namespace]++
 	}
