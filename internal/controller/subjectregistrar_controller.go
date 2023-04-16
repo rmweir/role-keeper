@@ -149,7 +149,7 @@ func (r *SubjectRegistrarReconciler) processAddQueue(ctx context.Context, sr rba
 		if sr.Status.AppliedRoles[string(roleBytes)] == nil {
 			sr.Status.AppliedRoles[string(roleBytes)] = make(map[string]int)
 		}
-		sr.Status.AppliedRoles[srr.Spec.RoleContract.Role.String()][srr.Spec.RoleContract.Namespace]++
+		sr.Status.AppliedRoles[string(roleBytes)][srr.Spec.RoleContract.Namespace]++
 	}
 	if len(sr.Status.AddQueue) == len(waitingOnSubjectRoleRequestStatusToChange) {
 		return len(waitingOnSubjectRoleRequestStatusToChange) > 0, false, nil
